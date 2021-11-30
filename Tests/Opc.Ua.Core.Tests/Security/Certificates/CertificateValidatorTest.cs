@@ -1270,6 +1270,9 @@ namespace Opc.Ua.Core.Tests.Security.Certificates
                     {
                         ServiceResultException serviceResultException = Assert.Throws<ServiceResultException>(() => certValidator.Validate(new X509Certificate2(app.Certificate)));
 
+                        // the assert statement needs some consideration. in any case, some certificate will be revoked,
+                        // so that should get reported with priority (?). With my proposal for a fix this is, at least,
+                        // always the 'top' message. It should be 'issuer revoked' though, for v==0 and v==1.
                         Assert.IsTrue(v == 2 ? StatusCodes.BadCertificateRevoked == serviceResultException.StatusCode :
                             StatusCodes.BadCertificateRevocationUnknown == serviceResultException.StatusCode,
                             serviceResultException.Message);
@@ -1480,8 +1483,8 @@ namespace Opc.Ua.Core.Tests.Security.Certificates
                     foreach (var app in m_NotYetValidCertsApplicationTestSet)
                     {
                         var serviceResultException = Assert.Throws<ServiceResultException>(() => certValidator.Validate(new X509Certificate2(app.Certificate)));
-                       // Assert.AreEqual(StatusCodes.BadCertificateTimeInvalid, serviceResultException.StatusCode, serviceResultException.Message);
-                        Assert.AreEqual(StatusCodes.BadCertificateRevocationUnknown, serviceResultException.StatusCode, serviceResultException.Message);
+                        Assert.AreEqual(StatusCodes.BadCertificateTimeInvalid, serviceResultException.StatusCode, serviceResultException.Message);
+                        //Assert.AreEqual(StatusCodes.BadCertificateRevocationUnknown, serviceResultException.StatusCode, serviceResultException.Message);
                     }
                 }
             }
