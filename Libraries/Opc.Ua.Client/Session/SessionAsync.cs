@@ -1223,6 +1223,28 @@ namespace Opc.Ua.Client
             public T reference { get; set; }
         }
 
+        private async Task<BrowseResponse> BrowseWithBrowseNextAsyncSI(
+            RequestHeader requestHeader,
+            ViewDescription view,
+            uint requestedMaxReferencesPerNode,
+            BrowseDescriptionCollection browseDescriptions,
+            CancellationToken ct = default
+            )
+        {
+            BrowseResponse response =
+                await base.BrowseAsync(requestHeader, view, requestedMaxReferencesPerNode, browseDescriptions, ct).ConfigureAwait(false);
+
+            ClientBase.ValidateResponse(response.Results, browseDescriptions);
+            ClientBase.ValidateResponse(response.DiagnosticInfos, browseDescriptions);
+
+            ByteStringCollection continuationPoints = new ByteStringCollection();
+            {
+                // hier weiter.
+            }
+
+            return response;
+        }
+
         /// <summary>
         /// Call the browse service asynchronously and call browse next,
         /// if applicable, immediately afterwards. Observe proper treatment
