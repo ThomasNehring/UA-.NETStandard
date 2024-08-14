@@ -1159,44 +1159,39 @@ namespace Opc.Ua.Client
                             errorsForPass[batchOffset + ii] = errorsForBatch[ii];
 
                         }
-                        int badNoCp = errorsForBatch.Count(x => x.StatusCode == StatusCodes.BadNoContinuationPoints);
-                        int badCpI = errorsForBatch.Count(x => x.StatusCode == StatusCodes.BadContinuationPointInvalid);
-                        int bad = errorsForBatch.Count(x => StatusCode.IsBad(x.StatusCode));
-                        badNoCPErrorsPerPass += badNoCp;
-                        badCPInvalidErrorsPerPass += badCpI;
-                        otherErrorsPerPass += bad - badNoCp - badCpI;
 
                         batchCount++;
                     }
 
-                    resultForPass = new List<ReferenceDescriptionCollection>();
-                    resultForPass.AddRange(referenceDescriptionsForNextPass);
-                    referenceDescriptionsForNextPass.Clear();
+                    badCPInvalidErrorsPerPass = errorsForPass.Count(x => x.StatusCode == StatusCodes.BadContinuationPointInvalid);
+                    badNoCPErrorsPerPass = errorsForPass.Count(x => x.StatusCode == StatusCodes.BadNoContinuationPoints);
+                    otherErrorsPerPass = errorsForPass.Count(x => StatusCode.IsBad(x.StatusCode)) - badNoCPErrorsPerPass - badCPInvalidErrorsPerPass;
 
-                    errorsForPass = new List<ServiceResult>();
-                    errorsForPass.AddRange(errorsForNextPass);
-                    errorsForNextPass.Clear();
+                    resultForPass = referenceDescriptionsForNextPass;
+                    referenceDescriptionsForNextPass = new List<ReferenceDescriptionCollection>();
 
-                    nodesToBrowseForPass = new List<NodeId>();
-                    nodesToBrowseForPass.AddRange(nodesToBrowseForNextPass);
-                    nodesToBrowseForNextPass.Clear();
+                    errorsForPass = errorsForNextPass;
+                    errorsForNextPass = new List<ServiceResult>();
 
-                    String aggregatedErrorMessage = "ManagedBrowse: in pass {0}, {1} {2} occured with a status code {3}";
+                    nodesToBrowseForPass = nodesToBrowseForNextPass;
+                    nodesToBrowseForNextPass = new List<NodeId>();
+
+                    String aggregatedErrorMessage = "ManagedBrowse: in pass {0}, {1} {2} occured with a status code {3}.";
 
                     if (badCPInvalidErrorsPerPass > 0)
                     {
                         Utils.LogInfo(aggregatedErrorMessage, passCount, badCPInvalidErrorsPerPass,
-                            badCPInvalidErrorsPerPass == 1 ? "error" : "errors", "BadContinuationPointInvalid.");
+                            badCPInvalidErrorsPerPass == 1 ? "error" : "errors", nameof(StatusCodes.BadContinuationPointInvalid));
                     }
                     if (badNoCPErrorsPerPass > 0)
                     {
                         Utils.LogInfo(aggregatedErrorMessage, passCount, badNoCPErrorsPerPass,
-                            badNoCPErrorsPerPass == 1 ? "error" : "errors", "BadNoContinuationPoints.");
+                            badNoCPErrorsPerPass == 1 ? "error" : "errors", nameof(StatusCodes.BadNoContinuationPoints));
                     }
                     if (otherErrorsPerPass > 0)
                     {
                         Utils.LogInfo(aggregatedErrorMessage, passCount, otherErrorsPerPass,
-                            otherErrorsPerPass == 1 ? "error" : "errors", "different from BadNoContinuationPoints or BadContinuationPointInvalid.");
+                            otherErrorsPerPass == 1 ? "error" : "errors", $"different from {nameof(StatusCodes.BadNoContinuationPoints)} or {nameof(StatusCodes.BadContinuationPointInvalid)}");
                     }
                     if (otherErrorsPerPass == 0 && badCPInvalidErrorsPerPass == 0 && badNoCPErrorsPerPass == 0)
                     {
@@ -1275,7 +1270,7 @@ namespace Opc.Ua.Client
             CancellationToken ct = default
             )
         {
-            var result = new List<ReferenceDescriptionCollection>();
+            var result = new List<ReferenceDescriptionCollection>(nodeIds.Count);
 
             (
                 _,
@@ -1307,15 +1302,13 @@ namespace Opc.Ua.Client
                 errorAnchors.Add(previousErrors.Last());
             }
 
-            byte[] nullByte = new byte[16];
-
             var nextContinuationPoints = new ByteStringCollection();
             var nextResults = new List<ReferenceDescriptionCollection>();
             var nextErrors = new List<ReferenceWrapper<ServiceResult>>();
 
             for (int ii = 0; ii < nodeIds.Count; ii++)
             {
-                if (continuationPoints[ii] != null && !Utils.IsEqual(continuationPoints[ii], nullByte))
+                if (continuationPoints[ii] != null)
                 {
                     if (!StatusCode.IsBad(previousErrors[ii].reference.StatusCode))
                     {
@@ -1357,16 +1350,19 @@ namespace Opc.Ua.Client
 
                 for (int ii = 0; ii < revisedContinuationPoints.Count; ii++)
                 {
-                    if (revisedContinuationPoints[ii] != null && !Utils.IsEqual(revisedContinuationPoints[ii], nullByte))
+                    if (revisedContinuationPoints[ii] != null)
                     {
-                        nextContinuationPoints.Add(revisedContinuationPoints[ii]);
-                        nextResults.Add(previousResults[ii]);
-                        nextErrors.Add(previousErrors[ii]);
+                        if (!StatusCode.IsBad(browseNextErrors[ii].StatusCode))
+                        {
+                            nextContinuationPoints.Add(revisedContinuationPoints[ii]);
+                            nextResults.Add(previousResults[ii]);
+                            nextErrors.Add(previousErrors[ii]);
+                        }
                     }
                 }
 
             }
-            var finalErrors = new List<ServiceResult>();
+            var finalErrors = new List<ServiceResult>(errorAnchors.Count);
             foreach (var errorReference in errorAnchors)
             {
                 finalErrors.Add(errorReference.reference);
