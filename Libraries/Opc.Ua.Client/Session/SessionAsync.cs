@@ -1218,7 +1218,7 @@ namespace Opc.Ua.Client
             public T reference { get; set; }
         }
 
-        private async Task<BrowseResponse> BrowseWithBrowseNextAsyncSI(
+        internal async Task<BrowseResponse> BrowseWithBrowseNextAsync(
             RequestHeader requestHeader,
             ViewDescription view,
             uint requestedMaxReferencesPerNode,
@@ -1229,12 +1229,55 @@ namespace Opc.Ua.Client
             BrowseResponse response =
                 await base.BrowseAsync(requestHeader, view, requestedMaxReferencesPerNode, browseDescriptions, ct).ConfigureAwait(false);
 
-            ClientBase.ValidateResponse(response.Results, browseDescriptions);
-            ClientBase.ValidateResponse(response.DiagnosticInfos, browseDescriptions);
+            BrowseResultCollection browseResults = response.Results;
+            DiagnosticInfoCollection diagnosticInfos = response.DiagnosticInfos;    
+
+            ClientBase.ValidateResponse(browseResults, browseDescriptions);
+            ClientBase.ValidateDiagnosticInfos(diagnosticInfos, browseDescriptions);
 
             ByteStringCollection continuationPoints = new ByteStringCollection();
+            BrowseResultCollection browseResultsWithMoreResults = new BrowseResultCollection();
+            
+            for(int i = 0; i < browseResults.Count; i++)
             {
-                // hier weiter.
+                if (StatusCode.IsNotBad(browseResults[i].StatusCode) && browseResults[i].ContinuationPoint != null)
+                {
+                    continuationPoints.Add(browseResults[i].ContinuationPoint);
+                    browseResultsWithMoreResults.Add(browseResults[i]);
+                }
+
+            }
+
+            while(continuationPoints.Count > 0)
+            {
+                BrowseNextResponse nextResponse =
+                    await base.BrowseNextAsync(requestHeader, false, continuationPoints, ct).ConfigureAwait(false);
+                BrowseResultCollection browseNextResults = nextResponse.Results;
+                DiagnosticInfoCollection nextDiagnostics = nextResponse.DiagnosticInfos;
+
+                ClientBase.ValidateResponse(browseNextResults, continuationPoints);
+                ClientBase.ValidateDiagnosticInfos(nextDiagnostics, continuationPoints);
+                
+
+                continuationPoints = new ByteStringCollection(); // continuationPoint.clear() ?
+
+                BrowseResultCollection browseNextResultsWithMoreResults = new BrowseResultCollection();
+
+                for(int i = 0; i < browseNextResults.Count; i++)
+                {                    
+                    if (StatusCode.IsNotBad(browseNextResults[i].StatusCode) && browseNextResults[i].ContinuationPoint != null)
+                    {
+                        continuationPoints.Add(browseNextResults[i].ContinuationPoint);
+                        browseNextResultsWithMoreResults.Add(browseResultsWithMoreResults[i]);
+                    }
+                    // override the status code. If all are good (or uncertain. What will we do with uncertain?)
+                    // the status codes are aggregated to good. If one is bad it will override all previous
+                    // good ones. We loose any additional information about the status code, though.
+                    browseResultsWithMoreResults[i].References.AddRange(browseNextResults[i].References);
+                    browseResultsWithMoreResults[i].StatusCode = browseNextResults[i].StatusCode;                                        
+                }
+
+                browseResultsWithMoreResults = browseNextResultsWithMoreResults;
             }
 
             return response;
