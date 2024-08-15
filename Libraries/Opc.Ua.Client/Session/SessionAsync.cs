@@ -1075,8 +1075,7 @@ namespace Opc.Ua.Client
                     BrowseDirection browseDirection,
                     NodeId referenceTypeId,
                     bool includeSubtypes,
-                    uint nodeClassMask,
-                    bool executeDefensively = false,
+                    uint nodeClassMask,                   
                     CancellationToken ct = default
             )
         {
@@ -1112,7 +1111,7 @@ namespace Opc.Ua.Client
                     int otherErrorsPerPass = 0;
                     uint maxNodesPerBrowse = OperationLimits.MaxNodesPerBrowse;
 
-                    if (executeDefensively && ServerMaxContinuationPointsPerBrowse > 0)
+                    if (ContinuationPointReservationPolicy == ContinuationPointReservationPolicy.Balanced && ServerMaxContinuationPointsPerBrowse > 0)
                     {
                         maxNodesPerBrowse = ServerMaxContinuationPointsPerBrowse < maxNodesPerBrowse ? ServerMaxContinuationPointsPerBrowse : maxNodesPerBrowse;
                     }
@@ -1135,6 +1134,7 @@ namespace Opc.Ua.Client
                         )
                         =
                         await BrowseWithBrowseNextAsync(
+                                requestHeader,
                                 view,
                                 nodesToBrowseBatch,
                                 maxResultsToReturn,
@@ -1289,20 +1289,12 @@ namespace Opc.Ua.Client
         /// of specific service results, specifically
         /// BadNoContinuationPoint and BadContinuationPointInvalid
         /// </summary>
-        /// <param name="view"></param>
-        /// <param name="nodeIds"></param>
-        /// <param name="maxResultsToReturn"></param>
-        /// <param name="browseDirection"></param>
-        /// <param name="referenceTypeId"></param>
-        /// <param name="includeSubtypes"></param>
-        /// <param name="nodeClassMask"></param>
-        /// <param name="ct"></param>
-        /// <returns></returns>
         private async Task<(
             List<ReferenceDescriptionCollection>,
             IList<ServiceResult>
             )>
             BrowseWithBrowseNextAsync(
+            RequestHeader requestHeader,
             ViewDescription view,
             List<NodeId> nodeIds,
             uint maxResultsToReturn,
@@ -1313,6 +1305,11 @@ namespace Opc.Ua.Client
             CancellationToken ct = default
             )
         {
+            if(requestHeader != null )
+            {
+                requestHeader.RequestHandle = 0;
+            }
+
             var result = new List<ReferenceDescriptionCollection>(nodeIds.Count);
 
             (
@@ -1322,7 +1319,7 @@ namespace Opc.Ua.Client
                 IList<ServiceResult> errors
             ) =
             await BrowseAsync(
-                null,
+                requestHeader,
                 view,
                 nodeIds,
                 maxResultsToReturn,
@@ -1485,7 +1482,6 @@ namespace Opc.Ua.Client
                     null,
                     true,
                     0,
-                    false,
                     ct).ConfigureAwait(false);
             return descriptions[0];
         }
@@ -1508,7 +1504,6 @@ namespace Opc.Ua.Client
                     null,
                     true,
                     0,
-                    false,
                     ct
                     ).ConfigureAwait(false);
                 return (descriptions, errors);

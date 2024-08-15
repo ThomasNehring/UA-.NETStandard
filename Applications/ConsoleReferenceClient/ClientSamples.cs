@@ -521,6 +521,9 @@ namespace Quickstarts
             BrowseDescription browseDescription = null,
             CancellationToken ct = default)
         {
+            ContinuationPointReservationPolicy policyBackup = uaClient.Session.ContinuationPointReservationPolicy;
+            uaClient.Session.ContinuationPointReservationPolicy = ContinuationPointReservationPolicy.Optimistic;
+
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
             BrowseDirection browseDirection = BrowseDirection.Forward;
@@ -594,7 +597,6 @@ namespace Quickstarts
                             referenceTypeId,
                             true,
                             nodeClassMask,
-                            false,
                             ct
                             ).ConfigureAwait(false);
 
@@ -669,6 +671,8 @@ namespace Quickstarts
                     m_output.WriteLine("NodeId {0} {1} {2}", reference.NodeId, reference.NodeClass, reference.BrowseName);
                 }
             }
+
+            uaClient.Session.ContinuationPointReservationPolicy = policyBackup;
 
             return result;
         }
