@@ -1240,12 +1240,12 @@ namespace Opc.Ua.Client
 
                 BrowseResultCollection browseResultsForNextPass = new BrowseResultCollection();
 
-                int passCount = 0;
+                //int passCount = 0;
                 do
                 {
-                    int badNoCPErrorsPerPass = 0;
-                    int badCPInvalidErrorsPerPass = 0;
-                    int otherErrorsPerPass = 0;
+                    //int badNoCPErrorsPerPass = 0;
+                    //int badCPInvalidErrorsPerPass = 0;
+                    //int otherErrorsPerPass = 0;
                     uint maxNodesPerBrowse = OperationLimits.MaxNodesPerBrowse;
 
                     if (ContinuationPointReservationPolicy == ContinuationPointReservationPolicy.Balanced && ServerMaxContinuationPointsPerBrowse > 0)
