@@ -1231,6 +1231,11 @@ namespace Opc.Ua.Client
   
             response.Results = new BrowseResultCollection(browseDescriptions.Count);
             response.DiagnosticInfos = new DiagnosticInfoCollection(browseDescriptions.Count);
+            //for(int i = 0; i < browseDescriptions.Count; i++)
+            //{
+            //    response.Results.Add(new BrowseResult());
+            //    response.DiagnosticInfos.Add(new DiagnosticInfo());
+            //}
             
 
             try
@@ -1238,17 +1243,21 @@ namespace Opc.Ua.Client
                 BrowseDescriptionCollection browseDescriptionsForPass = browseDescriptions;
                 BrowseDescriptionCollection browseDescriptionsForNextPass = new BrowseDescriptionCollection();
 
-                BrowseResultCollection browseResultsForNextPass = new BrowseResultCollection();
+                BrowseResultCollection browseResultsForPass = response.Results;
+                DiagnosticInfoCollection diagnosticInfosForPass = response.DiagnosticInfos;
 
-                //int passCount = 0;
+                BrowseResultCollection browseResultsForNextPass = new BrowseResultCollection();
+                DiagnosticInfoCollection diagnosticInfosForNextPass = new DiagnosticInfoCollection();
+
+                int passCount = 0;
                 do
                 {
-                    //int badNoCPErrorsPerPass = 0;
-                    //int badCPInvalidErrorsPerPass = 0;
-                    //int otherErrorsPerPass = 0;
+                    int badNoCPErrorsPerPass = 0;
+                    int badCPInvalidErrorsPerPass = 0;
+                    int otherErrorsPerPass = 0;
                     uint maxNodesPerBrowse = OperationLimits.MaxNodesPerBrowse;
 
-                    if (ContinuationPointReservationPolicy == ContinuationPointReservationPolicy.Balanced && ServerMaxContinuationPointsPerBrowse > 0)
+                    if (ContinuationPointPolicy == ContinuationPointPolicy.Balanced && ServerMaxContinuationPointsPerBrowse > 0)
                     {
                         maxNodesPerBrowse = ServerMaxContinuationPointsPerBrowse < maxNodesPerBrowse ? ServerMaxContinuationPointsPerBrowse : maxNodesPerBrowse;
                     }
@@ -1265,19 +1274,63 @@ namespace Opc.Ua.Client
 
                         for(int ii = 0; ii < browseDescriptionsForBatch.Count; ii++)
                         {
-                            response.Results[batchOffset + ii] = browseResponseForBatch.Results[ii];
-                            response.DiagnosticInfos[batchOffset + ii] = browseResponseForBatch.DiagnosticInfos[ii];
+                            browseResultsForPass.Add(browseResponseForBatch.Results[ii]);
+                            //diagnosticInfosForPass.Add(browseResponseForBatch.DiagnosticInfos[ii]);
 
                             if (browseResponseForBatch.Results[ii].StatusCode == StatusCodes.BadContinuationPointInvalid ||
                                 browseResponseForBatch.Results[ii].StatusCode == StatusCodes.BadNoContinuationPoints)
                             {
                                 browseDescriptionsForNextPass.Add(browseDescriptionsForBatch[ii]);
                                 browseResultsForNextPass.Add(browseResponseForBatch.Results[ii]);
-                            }// hier weiter
-                        }
+                                //diagnosticInfosForNextPass.Add(browseResponseForBatch.DiagnosticInfos[ii]);
+                            }
 
+                        }
+                        batchCount++;
                     }
 
+                    browseResultsForPass = browseResultsForNextPass;
+                    browseResultsForNextPass = new BrowseResultCollection();
+
+                    browseDescriptionsForPass = browseDescriptionsForNextPass;
+                    browseDescriptionsForNextPass = new BrowseDescriptionCollection();
+
+                    //diagnosticInfosForPass = diagnosticInfosForNextPass;
+                    //diagnosticInfosForNextPass = new DiagnosticInfoCollection();
+
+                    // make sure to count the errors after assigning browseResultForNextPass.
+                    // consider renaming variables (?) to make this transparent.
+                    badNoCPErrorsPerPass = browseResultsForPass.Count(x => x.StatusCode == StatusCodes.BadNoContinuationPoints);
+                    badCPInvalidErrorsPerPass = browseResultsForPass.Count(x => x.StatusCode == StatusCodes.BadContinuationPointInvalid);
+                    otherErrorsPerPass = browseResultsForPass.Count(x => StatusCode.IsBad(x.StatusCode))
+                        - badNoCPErrorsPerPass - badCPInvalidErrorsPerPass;
+
+
+
+
+                    String aggregatedErrorMessage = "ManagedBrowse: in pass {0}, {1} {2} occured with a status code {3}.";
+
+                    if (badCPInvalidErrorsPerPass > 0)
+                    {
+                        Utils.LogInfo(aggregatedErrorMessage, passCount, badCPInvalidErrorsPerPass,
+                            badCPInvalidErrorsPerPass == 1 ? "error" : "errors", nameof(StatusCodes.BadContinuationPointInvalid));
+                    }
+                    if (badNoCPErrorsPerPass > 0)
+                    {
+                        Utils.LogInfo(aggregatedErrorMessage, passCount, badNoCPErrorsPerPass,
+                            badNoCPErrorsPerPass == 1 ? "error" : "errors", nameof(StatusCodes.BadNoContinuationPoints));
+                    }
+                    if (otherErrorsPerPass > 0)
+                    {
+                        Utils.LogInfo(aggregatedErrorMessage, passCount, otherErrorsPerPass,
+                            otherErrorsPerPass == 1 ? "error" : "errors", $"different from {nameof(StatusCodes.BadNoContinuationPoints)} or {nameof(StatusCodes.BadContinuationPointInvalid)}");
+                    }
+                    if (otherErrorsPerPass == 0 && badCPInvalidErrorsPerPass == 0 && badNoCPErrorsPerPass == 0)
+                    {
+                        Utils.LogTrace("MangedBrowse completed with no errors.");
+                    }
+
+                    passCount++;
 
                 } while (browseDescriptionsForPass.Count > 0);
             }
@@ -1298,7 +1351,7 @@ namespace Opc.Ua.Client
             )
         {
             BrowseResponse response =
-                await base.BrowseAsync(requestHeader, view, requestedMaxReferencesPerNode, browseDescriptions, ct).ConfigureAwait(false);
+                await BrowseAsync(requestHeader, view, requestedMaxReferencesPerNode, browseDescriptions, ct).ConfigureAwait(false);
 
             BrowseResultCollection browseResults = response.Results;
             DiagnosticInfoCollection diagnosticInfos = response.DiagnosticInfos;    
