@@ -1218,6 +1218,77 @@ namespace Opc.Ua.Client
             public T reference { get; set; }
         }
 
+        internal async Task<BrowseResponse> ManagedBrowseAsync
+            (
+            RequestHeader requestHeader,
+            ViewDescription view,
+            uint requestedMaxReferencesPerNode,
+            BrowseDescriptionCollection browseDescriptions,
+            CancellationToken ct = default
+            )
+        {
+            BrowseResponse response = new BrowseResponse();
+  
+            response.Results = new BrowseResultCollection(browseDescriptions.Count);
+            response.DiagnosticInfos = new DiagnosticInfoCollection(browseDescriptions.Count);
+            
+
+            try
+            {
+                BrowseDescriptionCollection browseDescriptionsForPass = browseDescriptions;
+                BrowseDescriptionCollection browseDescriptionsForNextPass = new BrowseDescriptionCollection();
+
+                BrowseResultCollection browseResultsForNextPass = new BrowseResultCollection();
+
+                int passCount = 0;
+                do
+                {
+                    int badNoCPErrorsPerPass = 0;
+                    int badCPInvalidErrorsPerPass = 0;
+                    int otherErrorsPerPass = 0;
+                    uint maxNodesPerBrowse = OperationLimits.MaxNodesPerBrowse;
+
+                    if (ContinuationPointReservationPolicy == ContinuationPointReservationPolicy.Balanced && ServerMaxContinuationPointsPerBrowse > 0)
+                    {
+                        maxNodesPerBrowse = ServerMaxContinuationPointsPerBrowse < maxNodesPerBrowse ? ServerMaxContinuationPointsPerBrowse : maxNodesPerBrowse;
+                    }
+
+                    // split input into batches
+                    int batchCount = 0;
+                    foreach (BrowseDescriptionCollection browseDescriptionsForBatch in
+                        ((BrowseDescriptionCollection)browseDescriptionsForPass).Batch
+                            <BrowseDescription, BrowseDescriptionCollection>(maxNodesPerBrowse))
+                    {
+                        int batchOffset = batchCount * (int)maxNodesPerBrowse;
+                        BrowseResponse browseResponseForBatch =
+                            await BrowseWithBrowseNextAsync(requestHeader, view, requestedMaxReferencesPerNode, browseDescriptionsForBatch, ct).ConfigureAwait(false);
+
+                        for(int ii = 0; ii < browseDescriptionsForBatch.Count; ii++)
+                        {
+                            response.Results[batchOffset + ii] = browseResponseForBatch.Results[ii];
+                            response.DiagnosticInfos[batchOffset + ii] = browseResponseForBatch.DiagnosticInfos[ii];
+
+                            if (browseResponseForBatch.Results[ii].StatusCode == StatusCodes.BadContinuationPointInvalid ||
+                                browseResponseForBatch.Results[ii].StatusCode == StatusCodes.BadNoContinuationPoints)
+                            {
+                                browseDescriptionsForNextPass.Add(browseDescriptionsForBatch[ii]);
+                                browseResultsForNextPass.Add(browseResponseForBatch.Results[ii]);
+                            }// hier weiter
+                        }
+
+                    }
+
+
+                } while (browseDescriptionsForPass.Count > 0);
+            }
+            catch (Exception ex)
+            {
+                Utils.LogError(ex, "ManagedBrowseAsnc failed");
+            }
+
+            return response;
+        }
+
         internal async Task<BrowseResponse> BrowseWithBrowseNextAsync(
             RequestHeader requestHeader,
             ViewDescription view,
