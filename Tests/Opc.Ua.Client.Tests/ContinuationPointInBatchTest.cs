@@ -1032,7 +1032,7 @@ namespace Opc.Ua.Client.Tests
 
 
             Session theSession = (Session)((TraceableSession)Session).Session;
-            ReferenceServerForThisUnitTest.SetMaxNumberOfContinuationPoints(2);
+            ReferenceServerWithLimits.SetMaxNumberOfContinuationPoints(2);
             theSession.ServerMaxContinuationPointsPerBrowse = 2;
 
 
@@ -1081,10 +1081,10 @@ namespace Opc.Ua.Client.Tests
                 ExpectedNumberOfBadNoCPSCs = new List<int>()
             };
 
-            ReferenceServerForThisUnitTest.Test_MaxBrowseReferencesPerNode =
+            ReferenceServerWithLimits.Test_MaxBrowseReferencesPerNode =
                 pass1ExpectedResults.InputMaxNumberOfReferencesPerNode;
 
-            ReferenceServerForThisUnitTest.SetMaxNumberOfContinuationPoints(
+            ReferenceServerWithLimits.SetMaxNumberOfContinuationPoints(
                 pass1ExpectedResults.InputMaxNumberOfContinuationPoints);
             theSession.ServerMaxContinuationPointsPerBrowse
                 = pass1ExpectedResults.InputMaxNumberOfContinuationPoints;
@@ -1133,10 +1133,10 @@ namespace Opc.Ua.Client.Tests
 
             // now reset the server qutas to get a browse scenario without continuation points. This allows
             // to verify the result from the first browse service call (with quotas in place).
-            ReferenceServerForThisUnitTest.Test_MaxBrowseReferencesPerNode =
+            ReferenceServerWithLimits.Test_MaxBrowseReferencesPerNode =
                 pass2ExpectedResults.InputMaxNumberOfReferencesPerNode;
 
-            ReferenceServerForThisUnitTest.SetMaxNumberOfContinuationPoints(
+            ReferenceServerWithLimits.SetMaxNumberOfContinuationPoints(
                 pass2ExpectedResults.InputMaxNumberOfContinuationPoints);
             theSession.ServerMaxContinuationPointsPerBrowse
                 = pass2ExpectedResults.InputMaxNumberOfContinuationPoints;
@@ -1220,10 +1220,10 @@ namespace Opc.Ua.Client.Tests
                 ExpectedNumberOfBadNoCPSCs = new List<int>()
             };
 
-            ReferenceServerForThisUnitTest.Test_MaxBrowseReferencesPerNode =
+            ReferenceServerWithLimits.Test_MaxBrowseReferencesPerNode =
                 pass1ExpectedResults.InputMaxNumberOfReferencesPerNode;
 
-            ReferenceServerForThisUnitTest.SetMaxNumberOfContinuationPoints(
+            ReferenceServerWithLimits.SetMaxNumberOfContinuationPoints(
                 pass1ExpectedResults.InputMaxNumberOfContinuationPoints);
             theSession.ServerMaxContinuationPointsPerBrowse
                 = pass1ExpectedResults.InputMaxNumberOfContinuationPoints;
