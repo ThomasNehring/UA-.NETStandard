@@ -717,6 +717,21 @@ namespace Opc.Ua.Core.Tests.Types.BuiltIn
             ExpandedNodeId expandedNodeId = new ExpandedNodeId((NodeId)null);
             Assert.DoesNotThrow(() => byteArrayNodeId.Equals(expandedNodeId));
         }
+
+        [Test]
+        public void ExpandedNodeId2String()
+        {
+            string namespaceUri = "KEPServerEX";
+            string nodeName = "Data Type Examples.16 Bit Device.K Registers.Double3";
+            String expectedNodeIdString = $"nsu={namespaceUri};s={nodeName}";
+            ExpandedNodeId expandedNodeId = new ExpandedNodeId(expectedNodeIdString);
+            var x = new ExpandedNodeId(nodeName, namespaceUri);
+            
+            string stringifiedExpandedNodId = expandedNodeId.ToString();
+
+            Assert.AreEqual(expectedNodeIdString, stringifiedExpandedNodId);
+
+        }
         #endregion
 
         #region ValueRanks
